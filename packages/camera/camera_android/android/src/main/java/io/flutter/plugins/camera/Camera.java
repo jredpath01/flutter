@@ -535,13 +535,44 @@ class Camera
       for (Surface surface : remainingSurfaces) {
         configs.add(new OutputConfiguration(surface));
       }
-      createCaptureSessionWithSessionConfig(configs, callback);
+      // Try full SessionConfiguration first:
+           try {
+               createCaptureSessionWithSessionConfig(configs, callback);
+             } catch (CameraAccessException|RuntimeException fullFail) {
+               Log.w(TAG, "HAL SessionConfiguration failed, falling back preview-only", fullFail);
+            OutputConfiguration onlyPreview = new OutputConfiguration(flutterSurface);
+              SessionConfiguration fallback =
+                         new SessionConfiguration(
+                                    SessionConfiguration.SESSION_REGULAR,
+                                    Collections.singletonList(onlyPreview),
+                                    Executors.newSingleThreadExecutor(),
+                                   callback
+                                         );
+              try {
+                  cameraDevice.createCaptureSession(fallback);
+                 } catch (Exception ignore) {
+                   Log.e(TAG, "Preview-only SessionConfiguration fallback also failed", ignore);
+                 }
+            }
     } else {
       // Collect all surfaces to render to.
       List<Surface> surfaceList = new ArrayList<>();
       surfaceList.add(flutterSurface);
       surfaceList.addAll(remainingSurfaces);
-      createCaptureSession(surfaceList, callback);
+           // Try full set first:
+                   try {
+              createCaptureSession(surfaceList, callback);
+             } catch (CameraAccessException|RuntimeException fullFail) {
+               Log.w(TAG, "HAL full createCaptureSession failed, falling back preview-only", fullFail);
+               try {
+                   createCaptureSession(
+                           Collections.singletonList(flutterSurface),
+                            callback
+                                   );
+               } catch (Exception ignore) {
+                  Log.e(TAG, "Preview-only fallback also failed", ignore);
+                 }
+             }
     }
   }
 
