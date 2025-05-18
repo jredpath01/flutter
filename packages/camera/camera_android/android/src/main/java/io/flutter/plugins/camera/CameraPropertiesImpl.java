@@ -164,4 +164,17 @@ public class CameraPropertiesImpl implements CameraProperties {
     return cameraCharacteristics.get(
         CameraCharacteristics.NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES);
   }
+    @NonNull
+  @Override
+  public Size[] getVideoSizes() {
+    return cameraCharacteristics.get(
+        CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP).getOutputSizes(MediaRecorder.class);
+  }
+
+  @NonNull
+  @Override
+  public Size[] getPreviewSizes() {
+    return cameraCharacteristics.get(
+        CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP).getOutputSizes(ImageFormat.JPEG);
+  }
 }
