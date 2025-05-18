@@ -548,19 +548,56 @@ class Camera
   private void createCaptureSessionWithSessionConfig(
       List<OutputConfiguration> outputConfigs, CameraCaptureSession.StateCallback callback)
       throws CameraAccessException {
-    cameraDevice.createCaptureSession(
-        new SessionConfiguration(
-            SessionConfiguration.SESSION_REGULAR,
-            outputConfigs,
-            Executors.newSingleThreadExecutor(),
-            callback));
+    try {
+           cameraDevice.createCaptureSession(
+                      new SessionConfiguration(
+                                  SessionConfiguration.SESSION_REGULAR,
+                                    outputConfigs,
+                                    Executors.newSingleThreadExecutor(),
+                                    callback));
+          } catch (CameraAccessException | RuntimeException e) {
+           Log.w(TAG, "HAL SessionConfiguration failed, falling back preview-only", e);
+           // fallback SessionConfiguration with only the preview surface:
+                   SurfaceTexture st = flutterTexture.surfaceTexture();
+            st.setDefaultBufferSize(
+                       resolutionFeature.getPreviewSize().getWidth(),
+                       resolutionFeature.getPreviewSize().getHeight());
+           OutputConfiguration oc = new OutputConfiguration(new Surface(st));
+          SessionConfiguration fallback =
+                      new SessionConfiguration(
+                                 SessionConfiguration.SESSION_REGULAR,
+                                  Collections.singletonList(oc),
+                                  Executors.newSingleThreadExecutor(),
+                                 callback);
+           try {
+               cameraDevice.createCaptureSession(fallback);
+             } catch (Exception ignore) {
+              Log.e(TAG, "Even fallback SessionConfiguration failed", ignore);
+            }
+         }
   }
 
   @SuppressWarnings("deprecation")
   private void createCaptureSession(
       List<Surface> surfaces, CameraCaptureSession.StateCallback callback)
       throws CameraAccessException {
-    cameraDevice.createCaptureSession(surfaces, callback, backgroundHandler);
+    try {
+           cameraDevice.createCaptureSession(surfaceList, callback, backgroundHandler);
+         } catch (CameraAccessException | RuntimeException e) {
+           Log.w(TAG, "HAL createCaptureSession failed, retrying preview-only", e);
+           // fallback to preview surface only:
+           SurfaceTexture st = flutterTexture.surfaceTexture();
+           st.setDefaultBufferSize(
+                      resolutionFeature.getPreviewSize().getWidth(),
+                     resolutionFeature.getPreviewSize().getHeight());
+            Surface previewOnly = new Surface(st);
+            try {
+               cameraDevice.createCaptureSession(
+                           Collections.singletonList(previewOnly), callback, backgroundHandler);
+           } catch (Exception ignore) {
+              Log.e(TAG, "Even fallback createCaptureSession failed", ignore);
+            }
+         }
   }
 
   // Send a repeating request to refresh  capture session.
