@@ -588,26 +588,10 @@ class Camera
                                 Executors.newSingleThreadExecutor(),
                                callback));
             } catch (CameraAccessException | RuntimeException e) {
-      Log.w(TAG, "HAL SessionConfiguration failed, falling back preview-only", e);
-             // Re-derive preview size
-                     ResolutionFeature rf = cameraFeatures.getResolution();
-           Size previewSize = rf.getPreviewSize();
-             SurfaceTexture st = flutterTexture.surfaceTexture();
-             st.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
-             OutputConfiguration onlyPreview = new OutputConfiguration(new Surface(st));
-             SessionConfiguration fallback =
-              new SessionConfiguration(
-                                 SessionConfiguration.SESSION_REGULAR,
-                                 Collections.singletonList(onlyPreview),
-                                 Executors.newSingleThreadExecutor(),
-                      callback
-                                      );
-      try {
-                 cameraDevice.createCaptureSession(fallback);
-               } catch (Exception ignore) {
-                 Log.e(TAG, "Preview-only SessionConfiguration fallback also failed", ignore);
-              }
-           }
+      Log.w(TAG, "HAL SessionConfiguration failed, skipping session reconfigure", e);
+      // Abort any further attempts to close/open streams — let the existing session run.
+      return;
+    }
   }
 
   @SuppressWarnings("deprecation")
@@ -619,27 +603,10 @@ class Camera
       // Try the full multi-surface session:
       cameraDevice.createCaptureSession(surfaces, callback, backgroundHandler);
     }  catch (CameraAccessException | RuntimeException e) {
-    Log.w(TAG, "HAL SessionConfiguration failed, falling back to legacy varargs", e);
-
-    // Build the single‐preview surface just like before:
-    ResolutionFeature rf = cameraFeatures.getResolution();
-    Size previewSize = rf.getPreviewSize();
-    SurfaceTexture st = flutterTexture.surfaceTexture();
-    st.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
-    Surface previewOnly = new Surface(st);
-
-    // Now call the old varargs overload instead of SessionConfiguration:
-    try {
-      // This calls your @SuppressWarnings("deprecation") helper that does
-      // cameraDevice.createCaptureSession(surfaces, callback, backgroundHandler)
-      createCaptureSession(
-              Collections.singletonList(previewOnly),
-              callback
-      );
-    } catch (Exception ignore) {
-      Log.e(TAG, "Legacy varargs fallback also failed", ignore);
+      Log.w(TAG, "HAL createCaptureSession failed, skipping reconfigure", e);
+      // Don't attempt any further configure/close. Keep the old session alive.
+      return;
     }
-  }
   }
 
 
