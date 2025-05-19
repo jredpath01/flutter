@@ -618,7 +618,7 @@ class Camera
     try {
       // Try the full multi-surface session:
       cameraDevice.createCaptureSession(surfaces, callback, backgroundHandler);
-    } } catch (CameraAccessException | RuntimeException e) {
+    }  catch (CameraAccessException | RuntimeException e) {
     Log.w(TAG, "HAL SessionConfiguration failed, falling back to legacy varargs", e);
 
     // Build the single‐preview surface just like before:
