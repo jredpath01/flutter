@@ -612,30 +612,37 @@ class Camera
 
   @SuppressWarnings("deprecation")
   private void createCaptureSession(
-      List<Surface> surfaces, CameraCaptureSession.StateCallback callback)
-      throws CameraAccessException {
+          List<Surface> surfaces,
+          CameraCaptureSession.StateCallback callback)
+          throws CameraAccessException {
     try {
-            // First try the full multi-surface session
-                     cameraDevice.createCaptureSession(surfaceList, callback, backgroundHandler);
-           } catch (CameraAccessException | RuntimeException fullFail) {
-             Log.w(TAG, "HAL full createCaptureSession failed, falling back preview-only", fullFail);
-             // Re-derive preview size
-                     ResolutionFeature rf = cameraFeatures.getResolution();
-             Size previewSize = rf.getPreviewSize();
-             SurfaceTexture st = flutterTexture.surfaceTexture();
-              st.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
-             Surface previewOnly = new Surface(st);
-             try {
-                  cameraDevice.createCaptureSession(
-                           Collections.singletonList(previewOnly),
-                          callback,
-                         backgroundHandler
-                                 );
-               } catch (Exception ignore) {
-                 Log.e(TAG, "Preview-only fallback also failed", ignore);
-              }
-          }
+      // Try the full multi-surface session:
+      cameraDevice.createCaptureSession(surfaces, callback, backgroundHandler);
+    } } catch (CameraAccessException | RuntimeException e) {
+    Log.w(TAG, "HAL SessionConfiguration failed, falling back to legacy varargs", e);
+
+    // Build the single‐preview surface just like before:
+    ResolutionFeature rf = cameraFeatures.getResolution();
+    Size previewSize = rf.getPreviewSize();
+    SurfaceTexture st = flutterTexture.surfaceTexture();
+    st.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+    Surface previewOnly = new Surface(st);
+
+    // Now call the old varargs overload instead of SessionConfiguration:
+    try {
+      // This calls your @SuppressWarnings("deprecation") helper that does
+      // cameraDevice.createCaptureSession(surfaces, callback, backgroundHandler)
+      createCaptureSession(
+              Collections.singletonList(previewOnly),
+              callback
+      );
+    } catch (Exception ignore) {
+      Log.e(TAG, "Legacy varargs fallback also failed", ignore);
+    }
   }
+  }
+
+
 
   // Send a repeating request to refresh  capture session.
   void refreshPreviewCaptureSession(
